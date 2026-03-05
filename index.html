@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>단어 평가 - B팀</title>
+    <style>
+        :root { --primary: #4a90e2; --wrong: #e74c3c; --bg: #f4f7f6; }
+        body { font-family: sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
+        .container { background: white; padding: 30px; border-radius: 12px; width: 100%; max-width: 550px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #333; margin-bottom: 25px; }
+        .setup-group { margin-bottom: 15px; }
+        .setup-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        select, input[type="text"] { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; }
+        .word-row { padding: 15px; border-bottom: 1px solid #eee; }
+        .word-row label { display: block; margin-bottom: 8px; font-size: 1.1em; color: #2c3e50; }
+        .wrong-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9em; }
+        .wrong-table th, .wrong-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        .txt-wrong { color: var(--wrong); font-weight: bold; }
+        #status { text-align: center; margin: 15px; color: #e67e22; font-weight: bold; }
+        .finish-msg { text-align: center; color: #c0392b; margin-top: 25px; font-weight: bold; border: 2px dashed #e74c3c; padding: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📖 단어 평가 (B팀)</h2>
+    
+    <div id="setup">
+        <div class="setup-group">
+            <label>번호 선택</label>
+            <select id="userNum"><option value="">-- 번호를 선택하세요 --</option></select>
+        </div>
+        <div class="setup-group">
+            <label>이름 입력</label>
+            <input type="text" id="userName" placeholder="성함을 입력하세요">
+        </div>
+        <button onclick="startQuiz()">시험 시작</button>
+    </div>
+
+    <div id="quizArea" style="display:none;">
+        <div id="questions"></div>
+        <button id="submitBtn" onclick="submitQuiz()">시험 제출 (수정불가)</button>
+        <div id="status"></div>
+    </div>
+
+    <div id="resultArea" style="display:none;">
+        <h3 style="text-align:center;">점수: <span id="scoreVal"></span></h3>
+        <div id="wrongNote"></div>
+        <div class="finish-msg">⚠️ 시험 종료! 다시 응시할 수 없습니다.</div>
+    </div>
+</div>
+
+<script>
+    /* ✅ 1. 배포 URL을 작은따옴표 안에 넣으세요 (끝에 ?team=B 확인) */
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyaw0ruAE9uErb4U5-WbI4tfnuLrojhYgM_xF8I6mFxLYldzwbhfZruou-WwSrsfJ897g/exec?team=B';
+    const TEAM = "B";
+
+    window.onload = function() {
+        const numSelect = document.getElementById('userNum');
+        for (let i = 1; i <= 35; i++) {
+            let opt = document.createElement('option');
+            opt.value = i; opt.innerHTML = i + '번';
+            numSelect.appendChild(opt);
+        }
+    };
+
+    async function startQuiz() {
+        const n = document.getElementById('userNum').value;
+        const name = document.getElementById('userName').value.trim();
+        if(!n || !name) return alert("번호와 이름을 모두 입력해주세요.");
+        
+        document.getElementById('setup').style.display = 'none';
+        document.getElementById('quizArea').style.display = 'block';
+        document.getElementById('status').innerText = "시험지를 불러오는 중...";
+
+        try {
+            const res = await fetch(SCRIPT_URL);
+            const words = await res.json();
+            document.getElementById('questions').innerHTML = words.map((w, i) => `
+                <div class="word-row">
+                    <label><b>${i+1}. ${w.eng}</b></label>
+                    <input type="text" class="ans" data-eng="${w.eng}" autocomplete="off">
+                </div>
+            `).join('');
+            document.getElementById('status').innerText = "";
+        } catch (e) { alert("연결 실패! URL을 확인하세요."); }
+    }
+
+    async function submitQuiz() {
+        if(!confirm("제출하시겠습니까? 다시 시험을 칠 수 없습니다.")) return;
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('status').innerText = "결과 전송 중...";
+
+        const payload = {
+            team: TEAM,
+            classGroup: "", // 반 정보 비움
+            number: document.getElementById('userNum').value,
+            name: document.getElementById('userName').value.trim(),
+            answers: Array.from(document.querySelectorAll('.ans')).map(input => ({
+                eng: input.getAttribute('data-eng'),
+                userAns: input.value
+            }))
+        };
+
+        try {
+            const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+            const data = await res.json();
+            if(data.error) { alert(data.error); location.reload(); return; }
+
+            document.getElementById('quizArea').style.display = 'none';
+            document.getElementById('resultArea').style.display = 'block';
+            document.getElementById('scoreVal').innerText = `${data.score} / ${data.total}`;
+            if (data.wrongs.length > 0) {
+                let html = `<h4>❌ 오답 정리</h4><table class="wrong-table"><tr><th>단어</th><th>내 답</th><th>정답</th></tr>`;
+                data.wrongs.forEach(d => { html += `<tr><td>${d.eng}</td><td class="txt-wrong">${d.userAns}</td><td>${d.correct}</td></tr>`; });
+                document.getElementById('wrongNote').innerHTML = html + "</table>";
+            }
+        } catch (e) { alert("전송 실패!"); document.getElementById('submitBtn').disabled = false; }
+    }
+</script>
+</body>
+</html>
