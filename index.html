@@ -3,121 +3,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>단어 평가 - B팀</title>
+    <title>단어 테스트 시스템</title>
     <style>
-        :root { --primary: #4a90e2; --wrong: #e74c3c; --bg: #f4f7f6; }
-        body { font-family: sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
-        .container { background: white; padding: 30px; border-radius: 12px; width: 100%; max-width: 550px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #333; margin-bottom: 25px; }
-        .setup-group { margin-bottom: 15px; }
-        .setup-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        select, input[type="text"] { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
-        button { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; }
-        .word-row { padding: 15px; border-bottom: 1px solid #eee; }
-        .word-row label { display: block; margin-bottom: 8px; font-size: 1.1em; color: #2c3e50; }
-        .wrong-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9em; }
-        .wrong-table th, .wrong-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        .txt-wrong { color: var(--wrong); font-weight: bold; }
-        #status { text-align: center; margin: 15px; color: #e67e22; font-weight: bold; }
-        .finish-msg { text-align: center; color: #c0392b; margin-top: 25px; font-weight: bold; border: 2px dashed #e74c3c; padding: 15px; }
+        :root { --primary: #4a90e2; --bg: #f8f9fa; --text: #2d3436; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; margin: 0; }
+        .container { width: 100%; max-width: 500px; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        h2 { text-align: center; margin: 0 0 10px 0; color: var(--text); }
+        .desc { text-align: center; color: #636e72; font-size: 14px; margin-bottom: 20px; }
+        input[type="text"], select, .btn { width: 100%; padding: 16px; margin: 10px 0; border-radius: 12px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; outline: none; }
+        .btn-main { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: bold; }
+        .btn-main:disabled { background: #ccc; cursor: not-allowed; }
+        #quiz-screen, #result-screen, #loading { display: none; }
+        .word-display { font-size: 38px; font-weight: bold; text-align: center; margin: 40px 0; color: var(--primary); letter-spacing: -1px; }
+        .wrong-item { background: #fff5f5; padding: 15px; border-radius: 12px; border-left: 5px solid #ff7675; margin-bottom: 12px; font-size: 15px; }
+        .progress { text-align: right; color: #999; font-size: 13px; margin-bottom: 5px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📖 단어 평가 (B팀)</h2>
-    
-    <div id="setup">
-        <div class="setup-group">
-            <label>번호 선택</label>
-            <select id="userNum"><option value="">-- 번호를 선택하세요 --</option></select>
-        </div>
-        <div class="setup-group">
-            <label>이름 입력</label>
-            <input type="text" id="userName" placeholder="성함을 입력하세요">
-        </div>
-        <button onclick="startQuiz()">시험 시작</button>
+    <div id="login-screen">
+        <h2 id="team-title">단어 시험 로딩 중...</h2>
+        <p class="desc">명단을 불러오고 있습니다.</p>
+        <select id="name-select"><option value="">데이터 로딩 중...</option></select>
+        <button class="btn btn-main" id="start-btn" onclick="startQuiz()" disabled>잠시만 기다려주세요</button>
     </div>
 
-    <div id="quizArea" style="display:none;">
-        <div id="questions"></div>
-        <button id="submitBtn" onclick="submitQuiz()">시험 제출 (수정불가)</button>
-        <div id="status"></div>
+    <div id="quiz-screen">
+        <div id="progress" class="progress"></div>
+        <div class="word-display" id="question-word"></div>
+        <input type="text" id="user-input" placeholder="정답 입력 후 엔터" autocomplete="off" onkeypress="if(event.keyCode==13) nextQuestion()">
+        <button class="btn btn-main" onclick="nextQuestion()">다음 문제</button>
     </div>
 
-    <div id="resultArea" style="display:none;">
-        <h3 style="text-align:center;">점수: <span id="scoreVal"></span></h3>
-        <div id="wrongNote"></div>
-        <div class="finish-msg">⚠️ 시험 종료! 다시 응시할 수 없습니다.</div>
+    <div id="loading"><h2 style="text-align:center;">결과 저장 중...</h2></div>
+
+    <div id="result-screen">
+        <h2 style="text-align:center;">시험 종료!</h2>
+        <div id="score-text" style="text-align:center; font-size:28px; font-weight:bold; margin:25px 0; color:var(--primary);"></div>
+        <div id="wrong-list"><strong>❌ 틀린 단어 복습:</strong></div>
+        <button class="btn btn-main" onclick="location.reload()" style="margin-top:20px;">처음으로 돌아가기</button>
     </div>
 </div>
 
 <script>
-    /* ✅ 1. 배포 URL을 작은따옴표 안에 넣으세요 (끝에 ?team=B 확인) */
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyaw0ruAE9uErb4U5-WbI4tfnuLrojhYgM_xF8I6mFxLYldzwbhfZruou-WwSrsfJ897g/exec?team=B';
-    const TEAM = "B";
+    /** * ⚠️ [중요] Apps Script 배포 URL을 여기에 넣으세요! 
+     */
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyfBzhfSqBVQV2gljbEMugDt763SAdUXbgVfeOs0zQq1cQrouMwDG1dqxwhn5jfgCv3sw/exec'; 
+    
+    let allQuestions = [], currentIdx = 0, answers = [], submittedToday = [];
+    const urlParams = new URLSearchParams(window.location.search);
+    const team = urlParams.get('team') || 'B';
 
-    window.onload = function() {
-        const numSelect = document.getElementById('userNum');
-        for (let i = 1; i <= 35; i++) {
-            let opt = document.createElement('option');
-            opt.value = i; opt.innerHTML = i + '번';
-            numSelect.appendChild(opt);
-        }
+    window.onload = async () => {
+        document.getElementById('team-title').innerText = `${team}팀 단어 테스트`;
+        try {
+            const res = await fetch(`${SCRIPT_URL}?team=${team}&nocache=${Math.random()}`);
+            const data = await res.json();
+            allQuestions = data.questions;
+            submittedToday = data.submittedToday || [];
+            const select = document.getElementById('name-select');
+            select.innerHTML = '<option value="">이름을 선택하세요</option>';
+            data.names.forEach(n => {
+                let opt = document.createElement('option'); opt.value = n; opt.innerText = n;
+                select.appendChild(opt);
+            });
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('start-btn').innerText = "시험 시작하기";
+        } catch (e) { alert("데이터 로드 실패!"); }
     };
 
-    async function startQuiz() {
-        const n = document.getElementById('userNum').value;
-        const name = document.getElementById('userName').value.trim();
-        if(!n || !name) return alert("번호와 이름을 모두 입력해주세요.");
-        
-        document.getElementById('setup').style.display = 'none';
-        document.getElementById('quizArea').style.display = 'block';
-        document.getElementById('status').innerText = "시험지를 불러오는 중...";
+    // 🔥 정답 판정 전 클리닝 로직
+    function superClean(text) {
+        if (!text) return "";
+        return text
+            .replace(/\s+/g, "") // 공백 제거
+            .replace(/[~?ㆍ!@#$%^&*()_+.]/g, "") // 특수기호 제거
+            .replace(/[이가을를은는와과로으로에의]/g, "") // 조사 제거
+            .trim();
+    }
 
-        try {
-            const res = await fetch(SCRIPT_URL);
-            const words = await res.json();
-            document.getElementById('questions').innerHTML = words.map((w, i) => `
-                <div class="word-row">
-                    <label><b>${i+1}. ${w.eng}</b></label>
-                    <input type="text" class="ans" data-eng="${w.eng}" autocomplete="off">
-                </div>
-            `).join('');
-            document.getElementById('status').innerText = "";
-        } catch (e) { alert("연결 실패! URL을 확인하세요."); }
+    function startQuiz() {
+        const name = document.getElementById('name-select').value;
+        if(!name) return alert("이름을 선택하세요!");
+        if(submittedToday.includes(name)) {
+            alert("오늘은 이미 응시했습니다! 내일 다시 도전하세요.");
+            return;
+        }
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('quiz-screen').style.display = 'block';
+        showQuestion();
+    }
+
+    function showQuestion() {
+        const q = allQuestions[currentIdx];
+        document.getElementById('progress').innerText = `${currentIdx + 1} / ${allQuestions.length}`;
+        document.getElementById('question-word').innerText = q.eng;
+        document.getElementById('user-input').value = '';
+        document.getElementById('user-input').focus();
+    }
+
+    function nextQuestion() {
+        const uAns = document.getElementById('user-input').value.trim();
+        if(!uAns) return alert("정답을 입력하세요!");
+        
+        const cAnsRaw = allQuestions[currentIdx].kor; 
+        const cleanUser = superClean(uAns);
+        
+        // 🔥 복수 정답(/) 중 하나라도 맞으면 정답 처리
+        const correctList = cAnsRaw.split(/[/,]/).map(item => superClean(item));
+        const isCorrect = correctList.includes(cleanUser);
+        
+        // 서버로 보낼 때 correctAns(뜻)를 꼭 포함시킵니다.
+        answers.push({
+            eng: allQuestions[currentIdx].eng,
+            userAns: uAns,
+            correctAns: cAnsRaw, 
+            isCorrect: isCorrect
+        });
+        
+        currentIdx++;
+        if(currentIdx < allQuestions.length) showQuestion();
+        else submitQuiz();
     }
 
     async function submitQuiz() {
-        if(!confirm("제출하시겠습니까? 다시 시험을 칠 수 없습니다.")) return;
-        document.getElementById('submitBtn').disabled = true;
-        document.getElementById('status').innerText = "결과 전송 중...";
-
-        const payload = {
-            team: TEAM,
-            classGroup: "", // 반 정보 비움
-            number: document.getElementById('userNum').value,
-            name: document.getElementById('userName').value.trim(),
-            answers: Array.from(document.querySelectorAll('.ans')).map(input => ({
-                eng: input.getAttribute('data-eng'),
-                userAns: input.value
-            }))
-        };
-
+        document.getElementById('quiz-screen').style.display = 'none';
+        document.getElementById('loading').style.display = 'block';
+        const name = document.getElementById('name-select').value;
         try {
-            const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-            const data = await res.json();
-            if(data.error) { alert(data.error); location.reload(); return; }
-
-            document.getElementById('quizArea').style.display = 'none';
-            document.getElementById('resultArea').style.display = 'block';
-            document.getElementById('scoreVal').innerText = `${data.score} / ${data.total}`;
-            if (data.wrongs.length > 0) {
-                let html = `<h4>❌ 오답 정리</h4><table class="wrong-table"><tr><th>단어</th><th>내 답</th><th>정답</th></tr>`;
-                data.wrongs.forEach(d => { html += `<tr><td>${d.eng}</td><td class="txt-wrong">${d.userAns}</td><td>${d.correct}</td></tr>`; });
-                document.getElementById('wrongNote').innerHTML = html + "</table>";
+            const res = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ fullName: name, team: team, answers: answers })
+            });
+            const result = await res.json();
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('result-screen').style.display = 'block';
+            document.getElementById('score-text').innerText = `${result.score} / ${result.total} 점`;
+            
+            const listDiv = document.getElementById('wrong-list');
+            const wrongAnswers = answers.filter(a => !a.isCorrect);
+            if(wrongAnswers.length === 0) {
+                listDiv.innerHTML += '💯 만점입니다!';
+            } else {
+                wrongAnswers.forEach(a => {
+                    listDiv.innerHTML += `
+                        <div class="wrong-item">
+                            <b>${a.eng}</b><br>
+                            정답: ${a.correctAns}<br>
+                            <span style="color:#ff7675;">입력: ${a.userAns}</span>
+                        </div>`;
+                });
             }
-        } catch (e) { alert("전송 실패!"); document.getElementById('submitBtn').disabled = false; }
+        } catch(e) { alert("제출 오류!"); location.reload(); }
     }
 </script>
 </body>
