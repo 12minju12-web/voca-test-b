@@ -3,161 +3,173 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>단어 테스트 시스템</title>
+    <title>단어 시험 시스템</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
-        :root { --primary: #4a90e2; --bg: #f8f9fa; --text: #2d3436; }
-        body { font-family: 'Pretendard', sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; margin: 0; }
-        .container { width: 100%; max-width: 500px; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-        h2 { text-align: center; margin: 0 0 10px 0; color: var(--text); }
-        .desc { text-align: center; color: #636e72; font-size: 14px; margin-bottom: 20px; }
-        input[type="text"], select, .btn { width: 100%; padding: 16px; margin: 10px 0; border-radius: 12px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; outline: none; }
-        .btn-main { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: bold; }
-        .btn-main:disabled { background: #ccc; cursor: not-allowed; }
-        #quiz-screen, #result-screen, #loading { display: none; }
-        .word-display { font-size: 38px; font-weight: bold; text-align: center; margin: 40px 0; color: var(--primary); letter-spacing: -1px; }
-        .wrong-item { background: #fff5f5; padding: 15px; border-radius: 12px; border-left: 5px solid #ff7675; margin-bottom: 12px; font-size: 15px; }
-        .progress { text-align: right; color: #999; font-size: 13px; margin-bottom: 5px; font-weight: bold; }
+        :root { --primary: #4a90e2; --bg: #f5f7fa; }
+        body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        #app { background: white; width: 90%; max-width: 500px; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+        .hidden { display: none; }
+        input, select, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 1rem; }
+        button { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { opacity: 0.9; }
+        .wrong-item { background: #fff1f0; border: 1px solid #ffa39e; padding: 12px; margin: 8px 0; border-radius: 8px; text-align: left; font-size: 0.95rem; line-height: 1.5; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
+    <div id="app">
+        <div id="loading-screen">
+            <p>데이터를 불러오고 있습니다...</p>
+            <div class="loader"></div>
+        </div>
 
-<div class="container">
-    <div id="login-screen">
-        <h2 id="team-title">단어 시험 로딩 중...</h2>
-        <p class="desc">명단을 불러오고 있습니다.</p>
-        <select id="name-select"><option value="">데이터 로딩 중...</option></select>
-        <button class="btn btn-main" id="start-btn" onclick="startQuiz()" disabled>잠시만 기다려주세요</button>
+        <div id="login-screen" class="hidden">
+            <h2 id="team-title">단어 시험</h2>
+            <select id="name-select"><option value="">이름을 선택하세요</option></select>
+            <button onclick="startExam()">시험 시작하기</button>
+        </div>
+
+        <div id="exam-screen" class="hidden">
+            <p style="color: #666;">문제 <span id="current-idx">1</span> / <span id="total-idx">0</span></p>
+            <h1 id="question-word" style="font-size: 2.5rem; margin: 1rem 0;">...</h1>
+            <input type="text" id="answer-input" placeholder="뜻을 입력하세요" autocomplete="off">
+            <button onclick="nextQuestion()" style="margin-top: 20px;">다음 문제</button>
+        </div>
+
+        <div id="result-screen" class="hidden">
+            <h2>시험 종료! 🎉</h2>
+            <div style="font-size: 2.5rem; font-weight: bold; color: var(--primary); margin: 1rem 0;">
+                <span id="final-score">0</span> / <span id="final-total">0</span>
+            </div>
+            <div id="wrong-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;"></div>
+            <p style="color: #888; font-size: 0.8rem;">결과가 선생님께 전송되었습니다.</p>
+        </div>
     </div>
 
-    <div id="quiz-screen">
-        <div id="progress" class="progress"></div>
-        <div class="word-display" id="question-word"></div>
-        <input type="text" id="user-input" placeholder="정답 입력 후 엔터" autocomplete="off" onkeypress="if(event.keyCode==13) nextQuestion()">
-        <button class="btn btn-main" onclick="nextQuestion()">다음 문제</button>
-    </div>
-
-    <div id="loading"><h2 style="text-align:center;">결과 저장 중...</h2></div>
-
-    <div id="result-screen">
-        <h2 style="text-align:center;">시험 종료!</h2>
-        <div id="score-text" style="text-align:center; font-size:28px; font-weight:bold; margin:25px 0; color:var(--primary);"></div>
-        <div id="wrong-list"><strong>❌ 틀린 단어 복습:</strong></div>
-        <button class="btn btn-main" onclick="location.reload()" style="margin-top:20px;">처음으로 돌아가기</button>
-    </div>
-</div>
-
-<script>
-    /** * ⚠️ [중요] Apps Script 배포 URL을 여기에 넣으세요! 
-     */
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyfBzhfSqBVQV2gljbEMugDt763SAdUXbgVfeOs0zQq1cQrouMwDG1dqxwhn5jfgCv3sw/exec'; 
-    
-    let allQuestions = [], currentIdx = 0, answers = [], submittedToday = [];
-    const urlParams = new URLSearchParams(window.location.search);
-    const team = urlParams.get('team') || 'B';
-
-    window.onload = async () => {
-        document.getElementById('team-title').innerText = `${team}팀 단어 테스트`;
-        try {
-            const res = await fetch(`${SCRIPT_URL}?team=${team}&nocache=${Math.random()}`);
-            const data = await res.json();
-            allQuestions = data.questions;
-            submittedToday = data.submittedToday || [];
-            const select = document.getElementById('name-select');
-            select.innerHTML = '<option value="">이름을 선택하세요</option>';
-            data.names.forEach(n => {
-                let opt = document.createElement('option'); opt.value = n; opt.innerText = n;
-                select.appendChild(opt);
-            });
-            document.getElementById('start-btn').disabled = false;
-            document.getElementById('start-btn').innerText = "시험 시작하기";
-        } catch (e) { alert("데이터 로드 실패!"); }
-    };
-
-    // 🔥 정답 판정 전 클리닝 로직
-    function superClean(text) {
-        if (!text) return "";
-        return text
-            .replace(/\s+/g, "") // 공백 제거
-            .replace(/[~?ㆍ!@#$%^&*()_+.]/g, "") // 특수기호 제거
-            .replace(/[이가을를은는와과로으로에의]/g, "") // 조사 제거
-            .trim();
-    }
-
-    function startQuiz() {
-        const name = document.getElementById('name-select').value;
-        if(!name) return alert("이름을 선택하세요!");
-        if(submittedToday.includes(name)) {
-            alert("오늘은 이미 응시했습니다! 내일 다시 도전하세요.");
-            return;
-        }
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('quiz-screen').style.display = 'block';
-        showQuestion();
-    }
-
-    function showQuestion() {
-        const q = allQuestions[currentIdx];
-        document.getElementById('progress').innerText = `${currentIdx + 1} / ${allQuestions.length}`;
-        document.getElementById('question-word').innerText = q.eng;
-        document.getElementById('user-input').value = '';
-        document.getElementById('user-input').focus();
-    }
-
-    function nextQuestion() {
-        const uAns = document.getElementById('user-input').value.trim();
-        if(!uAns) return alert("정답을 입력하세요!");
+    <script>
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwxb2fENowoP3T6AKF-2wUSRb_dja_hQhYxtk4DaTUEjT2-Rzu_rVncPEC-WhVomotpfA/exec'; // <--- 꼭 수정하세요!
+        const urlParams = new URLSearchParams(window.location.search);
+        const TEAM = urlParams.get('team') || 'A';
         
-        const cAnsRaw = allQuestions[currentIdx].kor; 
-        const cleanUser = superClean(uAns);
-        
-        // 🔥 복수 정답(/) 중 하나라도 맞으면 정답 처리
-        const correctList = cAnsRaw.split(/[/,]/).map(item => superClean(item));
-        const isCorrect = correctList.includes(cleanUser);
-        
-        // 서버로 보낼 때 correctAns(뜻)를 꼭 포함시킵니다.
-        answers.push({
-            eng: allQuestions[currentIdx].eng,
-            userAns: uAns,
-            correctAns: cAnsRaw, 
-            isCorrect: isCorrect
-        });
-        
-        currentIdx++;
-        if(currentIdx < allQuestions.length) showQuestion();
-        else submitQuiz();
-    }
+        let questions = [], names = [], currentIdx = 0, answers = [], submittedToday = [];
 
-    async function submitQuiz() {
-        document.getElementById('quiz-screen').style.display = 'none';
-        document.getElementById('loading').style.display = 'block';
-        const name = document.getElementById('name-select').value;
-        try {
-            const res = await fetch(SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify({ fullName: name, team: team, answers: answers })
-            });
-            const result = await res.json();
-            
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('result-screen').style.display = 'block';
-            document.getElementById('score-text').innerText = `${result.score} / ${result.total} 점`;
-            
-            const listDiv = document.getElementById('wrong-list');
-            const wrongAnswers = answers.filter(a => !a.isCorrect);
-            if(wrongAnswers.length === 0) {
-                listDiv.innerHTML += '💯 만점입니다!';
-            } else {
-                wrongAnswers.forEach(a => {
-                    listDiv.innerHTML += `
-                        <div class="wrong-item">
-                            <b>${a.eng}</b><br>
-                            정답: ${a.correctAns}<br>
-                            <span style="color:#ff7675;">입력: ${a.userAns}</span>
-                        </div>`;
+        window.onload = async () => {
+            try {
+                const res = await fetch(`${SCRIPT_URL}?team=${TEAM}`);
+                const data = await res.json();
+                if(data.error) throw new Error(data.error);
+                
+                questions = data.questions;
+                names = data.names;
+                submittedToday = data.submittedToday || [];
+                
+                document.getElementById('team-title').innerText = `단어 시험 (${TEAM}팀)`;
+                const select = document.getElementById('name-select');
+                names.forEach(n => {
+                    const opt = document.createElement('option');
+                    opt.value = opt.text = n;
+                    select.add(opt);
                 });
+                
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('login-screen').classList.remove('hidden');
+            } catch (e) {
+                alert('데이터 로드 실패: ' + e.message);
             }
-        } catch(e) { alert("제출 오류!"); location.reload(); }
-    }
-</script>
+        };
+
+        function startExam() {
+            const name = document.getElementById('name-select').value;
+            if(!name) return alert('이름을 선택해주세요!');
+            
+            // 🔥 재시험 방지 체크
+            if (submittedToday.includes(name)) {
+                alert('이미 오늘 시험을 제출했습니다. 재시험은 불가능합니다.');
+                return;
+            }
+            
+            if(!confirm(name + " 학생, 시험을 시작할까요?")) return;
+
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('exam-screen').classList.remove('hidden');
+            document.getElementById('total-idx').innerText = questions.length;
+            showQuestion();
+        }
+
+        function showQuestion() {
+            document.getElementById('question-word').innerText = questions[currentIdx].eng;
+            document.getElementById('current-idx').innerText = currentIdx + 1;
+            const input = document.getElementById('answer-input');
+            input.value = '';
+            input.focus();
+        }
+
+        function superClean(t) {
+            if(!t) return "";
+            return t.replace(/\s+/g, "").replace(/[~?ㆍ!@#$%^&*()_+.]/g, "").replace(/[이가을를은는와과로으로에의]/g, "").trim();
+        }
+
+        function nextQuestion() {
+            const userAns = document.getElementById('answer-input').value;
+            const correctAns = questions[currentIdx].kor;
+            
+            // 복수 정답 체크 ( / 기준)
+            const isCorrect = correctAns.split('/').some(answer => superClean(answer) === superClean(userAns));
+            
+            answers.push({ 
+                eng: questions[currentIdx].eng, 
+                correctAns: correctAns, 
+                userAns: userAns, 
+                isCorrect: isCorrect 
+            });
+            
+            currentIdx++;
+            if(currentIdx < questions.length) {
+                showQuestion();
+            } else {
+                submitResult();
+            }
+        }
+
+        async function submitResult() {
+            const app = document.getElementById('app');
+            const name = document.getElementById('name-select').value;
+            app.innerHTML = '<h2>결과 전송 중...</h2><div class="loader"></div>';
+
+            try {
+                const payload = { fullName: name, team: TEAM, answers: answers };
+                await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+                
+                // 결과 화면 구성
+                const score = answers.filter(a => a.isCorrect).length;
+                app.innerHTML = `
+                    <h2>시험 종료! 🎉</h2>
+                    <div style="font-size: 2.5rem; font-weight: bold; color: #4a90e2; margin: 1rem 0;">
+                        ${score} / ${answers.length}
+                    </div>
+                    <div id="wrong-box" style="text-align:left; max-height:300px; overflow-y:auto; margin-bottom:20px;"></div>
+                    <button onclick="location.reload()">처음으로</button>
+                `;
+
+                const wrongBox = document.getElementById('wrong-box');
+                answers.filter(a => !a.isCorrect).forEach(a => {
+                    const div = document.createElement('div');
+                    div.className = 'wrong-item';
+                    div.innerHTML = `<strong>${a.eng}</strong><br>정답: ${a.correctAns}<br>입력: <span style="color:red">${a.userAns || '(빈칸)'}</span>`;
+                    wrongBox.appendChild(div);
+                });
+
+                if(score === answers.length) confetti();
+            } catch (e) {
+                alert('전송 오류가 발생했습니다. 화면을 끄지 말고 선생님께 말씀하세요!');
+            }
+        }
+
+        document.getElementById('answer-input').addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') nextQuestion();
+        });
+    </script>
 </body>
 </html>
