@@ -21,7 +21,7 @@
 <body>
     <div id="app">
         <div id="loading-screen">
-            <p>데이터를 불러오고 있습니다...</p>
+            <p>데이터를 불러오는 중입니다...</p>
             <div class="loader"></div>
         </div>
 
@@ -33,7 +33,7 @@
 
         <div id="exam-screen" class="hidden">
             <p style="color: #666;">문제 <span id="current-idx">1</span> / <span id="total-idx">0</span></p>
-            <h1 id="question-word" style="font-size: 2.5rem; margin: 1rem 0;">...</h1>
+            <h1 id="question-word" style="font-size: 2.5rem; margin: 1rem 0;"></h1>
             <input type="text" id="answer-input" placeholder="뜻을 입력하세요" autocomplete="off">
             <button onclick="nextQuestion()" style="margin-top: 20px;">다음 문제</button>
         </div>
@@ -44,12 +44,14 @@
                 <span id="final-score">0</span> / <span id="final-total">0</span>
             </div>
             <div id="wrong-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;"></div>
-            <p style="color: #888; font-size: 0.8rem;">결과가 선생님께 전송되었습니다.</p>
+            <button onclick="location.reload()">처음으로</button>
         </div>
     </div>
 
     <script>
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwxb2fENowoP3T6AKF-2wUSRb_dja_hQhYxtk4DaTUEjT2-Rzu_rVncPEC-WhVomotpfA/exec'; // <--- 꼭 수정하세요!
+        // ★★★ 선생님의 Apps Script 배포 URL을 여기에 넣으세요 ★★★
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz6Y-G88YA-ifoNm3yfUGeFk7xN3IbTdfV1VIaWtLuzq_0o_VLfCIwLVXL8xadHfOz9Hw/exec'; 
+        
         const urlParams = new URLSearchParams(window.location.search);
         const TEAM = urlParams.get('team') || 'B';
         
@@ -57,7 +59,8 @@
 
         window.onload = async () => {
             try {
-                const res = await fetch(`${SCRIPT_URL}?team=${TEAM}`);
+                // 캐시 방지를 위해 랜덤값(v) 추가
+                const res = await fetch(`${SCRIPT_URL}?team=${TEAM}&v=${Math.random()}`);
                 const data = await res.json();
                 if(data.error) throw new Error(data.error);
                 
@@ -84,7 +87,7 @@
             const name = document.getElementById('name-select').value;
             if(!name) return alert('이름을 선택해주세요!');
             
-            // 🔥 재시험 방지 체크
+            // 재시험 방지 체크
             if (submittedToday.includes(name)) {
                 alert('이미 오늘 시험을 제출했습니다. 재시험은 불가능합니다.');
                 return;
@@ -106,22 +109,35 @@
             input.focus();
         }
 
+        // 텍스트 클리닝 (공백, 조사, 특수기호 '-' 등 제거)
         function superClean(t) {
             if(!t) return "";
-            return t.replace(/\s+/g, "").replace(/[~?ㆍ!@#$%^&*()_+.]/g, "").replace(/[이가을를은는와과로으로에의]/g, "").trim();
+            return t.toString()
+                .replace(/\s+/g, "") 
+                .replace(/[~?ㆍ!@#$%^&*()_+\-.]/g, "") // '-' 기호 포함 제거
+                .replace(/[이가을를은는와과로으로에의]/g, "") 
+                .trim();
         }
 
+        // 채점 로직 (학생이 쉼표나 슬래시로 여러 개 써도 처리)
         function nextQuestion() {
-            const userAns = document.getElementById('answer-input').value;
-            const correctAns = questions[currentIdx].kor;
+            const inputEl = document.getElementById('answer-input');
+            const userAnsRaw = inputEl.value.trim() || "(빈칸)";
+            const correctAnsRaw = questions[currentIdx].kor; 
             
-            // 복수 정답 체크 ( / 기준)
-            const isCorrect = correctAns.split('/').some(answer => superClean(answer) === superClean(userAns));
+            // 1. 단어장의 정답들 (슬래시 기준 분리)
+            const correctAnswers = correctAnsRaw.split('/').map(ans => superClean(ans));
+            
+            // 2. 학생이 쓴 답 분리 (쉼표 , 또는 슬래시 / 기준)
+            const userAnswers = userAnsRaw.split(/[,/]/).map(ans => superClean(ans)).filter(ans => ans !== "");
+            
+            // 3. 학생이 쓴 답 중 하나라도 정답 목록에 있으면 정답 처리
+            const isCorrect = userAnswers.some(uAns => correctAnswers.includes(uAns));
             
             answers.push({ 
                 eng: questions[currentIdx].eng, 
-                correctAns: correctAns, 
-                userAns: userAns, 
+                correctAns: correctAnsRaw, 
+                userAns: userAnsRaw, 
                 isCorrect: isCorrect 
             });
             
@@ -142,8 +158,9 @@
                 const payload = { fullName: name, team: TEAM, answers: answers };
                 await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
                 
-                // 결과 화면 구성
                 const score = answers.filter(a => a.isCorrect).length;
+                
+                // 최종 결과 화면 구성
                 app.innerHTML = `
                     <h2>시험 종료! 🎉</h2>
                     <div style="font-size: 2.5rem; font-weight: bold; color: #4a90e2; margin: 1rem 0;">
@@ -157,13 +174,13 @@
                 answers.filter(a => !a.isCorrect).forEach(a => {
                     const div = document.createElement('div');
                     div.className = 'wrong-item';
-                    div.innerHTML = `<strong>${a.eng}</strong><br>정답: ${a.correctAns}<br>입력: <span style="color:red">${a.userAns || '(빈칸)'}</span>`;
+                    div.innerHTML = `<strong>${a.eng}</strong><br>정답: ${a.correctAns}<br>입력: <span style="color:red">${a.userAns}</span>`;
                     wrongBox.appendChild(div);
                 });
 
                 if(score === answers.length) confetti();
             } catch (e) {
-                alert('전송 오류가 발생했습니다. 화면을 끄지 말고 선생님께 말씀하세요!');
+                alert('전송 오류가 발생했습니다. 선생님께 말씀하세요!');
             }
         }
 
